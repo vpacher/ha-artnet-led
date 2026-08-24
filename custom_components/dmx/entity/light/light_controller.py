@@ -84,7 +84,14 @@ class LightController:
                         first_capability = capabilities[0] if isinstance(capabilities, list) else capabilities
                         [dynamic_entity] = first_capability.dynamic_entities
                         normalized_value = dynamic_entity.from_dmx_fine(dmx_values)
-                        current_entity_value = int(dynamic_entity.unnormalize(normalized_value))
+                        # round(), not int(): the DMX->entity->DMX round-trip through
+                        # from_dmx_fine()/unnormalize() is floating-point interpolation
+                        # (capability.py's _make_interpolater), so an exact value like
+                        # 255 can come back as 254.999999999997. int() truncated that
+                        # down to 254, making every reapply look 1 unit "changed" and
+                        # triggering an unnecessary re-animation (visible as a brief
+                        # flicker) even when nothing actually changed on the wire.
+                        current_entity_value = round(dynamic_entity.unnormalize(normalized_value))
                         if mapping.output_correction is not None:
                             current_entity_value = round(
                                 mapping.output_correction.invert(current_entity_value / 255.0) * 255.0
